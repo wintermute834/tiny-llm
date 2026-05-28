@@ -4,7 +4,7 @@ import torch
 from typing import Type
 from torch import Tensor
 
-from tokenizer import Tokenizer, CharacterTokenizer
+from tokenizer import Tokenizer, CharacterTokenizer, BPETokenizer
 from device import device
 
 
@@ -15,7 +15,7 @@ class Data:
             contents = f.read()
             vocab = sorted(list(set(contents)))
 
-        self.tokenizer = tokenizer(vocab)
+        self.tokenizer = tokenizer(vocab, contents)
 
         data = self.tokenizer.encode(contents)
         num_train_tok = int(len(data) * training_split)
@@ -35,9 +35,10 @@ class Data:
 
 
 if __name__ == "__main__":
-    data = Data("tiny_shakespeare.txt")
+    # data = Data("tiny_shakespeare.txt")
+    data = Data("tiny_shakespeare.txt", tokenizer=BPETokenizer)
 
-    print(f"Vocab: {"".join(data.tokenizer.vocab)}\n")
+    print(f"Vocab: {data.tokenizer.vocab[:100]}\n")
     print(f"Vocab size: {data.tokenizer.vocab_size}\n")
     print(f"First 100 tokens:\n{data.training_data[:100]}")
     print(f"Number of tokens: {len(data.training_data)}")

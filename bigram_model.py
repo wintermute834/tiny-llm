@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import tokenizer
 
 from typing import Optional
 from torch import Tensor
@@ -16,10 +17,11 @@ class BigramModel(nn.Module):
     def __init__(self, vocab_size: int) -> None:
         super().__init__()
 
-        self.embedding = nn.Embedding(vocab_size, vocab_size)
+        self.embedding = nn.Embedding(vocab_size, 128)
+        self.layer = nn.Linear(128, vocab_size)
     
     def forward(self, inputs: Tensor, targets: Optional[Tensor] = None) -> tuple[Tensor, Optional[Tensor]]:
-        logits = self.embedding(inputs)
+        logits = self.layer(self.embedding(inputs))
 
         if targets is None:
             loss = None
@@ -46,13 +48,19 @@ class BigramModel(nn.Module):
 
 
 if __name__ == "__main__":
-    data = Data("tiny_shakespeare.txt")
+    torch.manual_seed(9)
+
+    data = Data("tiny_shakespeare.txt", tokenizer=tokenizer.BPETokenizer)
     model = BigramModel(data.tokenizer.vocab_size).to(device)
 
     # get initial loss
-    i, t = data.sample(100, 1000, training=False)
+    i, t = data.sample(50, 1000)
     _, loss = model(i, t)
-    print(f"Initial loss: {loss}")
+    print(f"Initial training loss: {loss}")
+
+    i, t = data.sample(50, 1000, training=False)
+    _, loss = model(i, t)
+    print(f"Initial validation loss: {loss}")
 
     # parameters
     batches = 32
@@ -70,9 +78,13 @@ if __name__ == "__main__":
         optimizer.step()
 
     # get final loss
-    i, t = data.sample(100, 1000, training=False)
+    i, t = data.sample(50, 1000)
     _, loss = model(i, t)
-    print(f"Final loss: {loss}")
+    print(f"Final training loss: {loss}")
+
+    i, t = data.sample(50, 1000, training=False)
+    _, loss = model(i, t)
+    print(f"Final validation loss: {loss}")
 
     # generate some text
     context = data.tokenizer.encode("\n").to(device).unsqueeze(0)
