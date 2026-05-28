@@ -75,7 +75,7 @@ if __name__ == "__main__":
     print(f"Final loss: {loss}")
 
     # generate some text
-    context = data.tokenizer.encode("\n").unsqueeze(0)
+    context = data.tokenizer.encode("\n").to(device).unsqueeze(0)
     out = model.generate(context, 1_000)
     decoded = data.tokenizer.decode(out[0])
 
