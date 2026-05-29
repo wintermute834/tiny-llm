@@ -18,6 +18,8 @@ class Tokenizer:
         self.vocab_size = len(self.vocab)
         self._tok_to_str = {i: st for i, st in enumerate(self.vocab)}
 
+        self.hash = hashlib.sha256(str(vocab).encode()).hexdigest() # store hash for saving/loading
+
     def encode(self, string: str) -> Tensor: ...
 
     def decode(self, tokens: Tensor) -> str:
@@ -47,8 +49,6 @@ class BPETokenizer(Tokenizer):
     def __init__(self, vocab: list[str], text: str, *args) -> None:
         super().__init__(vocab)
 
-        self._hash = hashlib.sha256(str(vocab).encode()).hexdigest() # store hash for saving/loading
-
         if self.try_load(): return # try to load tokenization
 
         self._str_to_tok = {st: i for i, st in enumerate(self.vocab)}
@@ -77,7 +77,7 @@ class BPETokenizer(Tokenizer):
         self.save()
 
     def save(self) -> None:
-        with open(f"tokenizations/{self._hash}.tok", "w") as f:
+        with open(f"tokenizers/{self.hash}.tok", "w") as f:
             f.write(json.dumps({
                 "rules": self.rules,
                 "vocab": self.vocab,
@@ -87,7 +87,7 @@ class BPETokenizer(Tokenizer):
 
     def try_load(self) -> bool:
         try:
-            with open(f"tokenizations/{self._hash}.tok", "r") as f:
+            with open(f"tokenizers/{self.hash}.tok", "r") as f:
                 data = json.loads(f.read())
 
             self.rules = data["rules"]
@@ -97,7 +97,7 @@ class BPETokenizer(Tokenizer):
 
             self.vocab_size = len(self.vocab)
 
-            print("Loaded tokenization successfully")
+            print("Loaded tokenizer successfully")
 
             return True
 
@@ -157,6 +157,4 @@ if __name__ == "__main__":
     print(f"Message: \"{message}\"")
     print(f"Encoded: {encoded}")
     print(f"Decoded: \"{decoded}\"")
-
-
 

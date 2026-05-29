@@ -14,11 +14,11 @@ from device import device
 
 
 class BigramModel(nn.Module):
-    def __init__(self, vocab_size: int) -> None:
+    def __init__(self, vocab_size: int, embedding_dim: int = 128) -> None:
         super().__init__()
 
-        self.embedding = nn.Embedding(vocab_size, 128)
-        self.layer = nn.Linear(128, vocab_size)
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.layer = nn.Linear(embedding_dim, vocab_size)
     
     def forward(self, inputs: Tensor, targets: Optional[Tensor] = None) -> tuple[Tensor, Optional[Tensor]]:
         logits = self.layer(self.embedding(inputs))
@@ -68,7 +68,8 @@ if __name__ == "__main__":
     epochs = 5_000
 
     # train
-    optimizer = optim.AdamW(model.parameters())
+    optimizer = optim.Muon(model.parameters())
+
     for i in range(epochs):
         inputs, targets = data.sample(batches, context_len)
         _, loss = model(inputs, targets)
