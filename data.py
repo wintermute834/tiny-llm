@@ -12,7 +12,7 @@ from device import device
 
 
 class Data:
-    def __init__(self, filename: str, tokenizer: Type[Tokenizer] = CharacterTokenizer, training_split: float = 0.9) -> None:
+    def __init__(self, filename: str, tokenizer: Type[Tokenizer] = CharacterTokenizer, training_split: float = 0.9, use_save = True) -> None:
         with open(f"data/{filename}", "r") as f:
             contents = f.read()
             vocab = sorted(list(set(contents)))
@@ -21,7 +21,7 @@ class Data:
 
         self.hash = hashlib.sha256(str((filename, self.tokenizer.hash)).encode()).hexdigest()
 
-        if self.try_load(): return # try to load encoded 
+        if use_save and self.try_load(): return # try to load encoded is using save
 
         data = self.tokenizer.encode(contents)
         num_train_tok = int(len(data) * training_split)
@@ -29,7 +29,7 @@ class Data:
         self.training_data = data[:num_train_tok]
         self.testing_data = data[num_train_tok:]
 
-        self.save()
+        if use_save: self.save()
 
     def sample(self, batches: int, length: int, training: bool = True) -> tuple[Tensor, Tensor]:
         data = self.training_data if training else self.testing_data

@@ -14,6 +14,9 @@ from device import device
 
 
 class BigramModel(nn.Module):
+    '''
+    A simple bigram model that learns the probabilities for the next token as an embedding followed by a linear layer.
+    '''
     def __init__(self, vocab_size: int, embedding_dim: int = 128) -> None:
         super().__init__()
 

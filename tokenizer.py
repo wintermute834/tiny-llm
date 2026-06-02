@@ -18,7 +18,7 @@ class Tokenizer:
         self.vocab_size = len(self.vocab)
         self._tok_to_str = {i: st for i, st in enumerate(self.vocab)}
 
-        self.hash = hashlib.sha256(str(vocab).encode()).hexdigest() # store hash for saving/loading
+        self.hash = hashlib.sha256(f"{self.__class__}, {vocab}".encode()).hexdigest() # store hash for saving/loading
 
     def encode(self, string: str) -> Tensor: ...
 
