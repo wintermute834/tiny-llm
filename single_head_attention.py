@@ -79,7 +79,7 @@ class SelfAttentionHead(nn.Module):
         queries = self.queries(inputs) # (B, T, embedding_dim)
         weights = queries @ keys.transpose(-2, -1) * C ** -0.5 # (B, T, embedding_dim) @ (B, embedding_dim, T) ---> (B, T, T)
 
-        tri = torch.tril(torch.ones(T, T))
+        tri = torch.tril(torch.ones(T, T, device=device))
         weights = weights.masked_fill(tri == 0, float("-inf"))
         weights = weights.softmax(dim=-1)
 

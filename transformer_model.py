@@ -53,7 +53,37 @@ class TransformerModel(nn.Module):
 
         return logits, loss
 
+    @torch.no_grad()
+    def forward_eval(self, inputs: Tensor, targets: Optional[Tensor] = None) -> tuple[Tensor, Optional[Tensor]]:
+        self.eval()
+
+        B, T = inputs.shape
+
+        token_embed = self.token_embedding(inputs)
+        position_embed = self.position_embedding(torch.arange(T, device=device))
+
+        activations = token_embed + position_embed
+        activations = self.blocks(activations)
+        activations = self.ln_final(activations)
+        logits = self.lm_head(activations)
+
+        if targets is None:
+            loss = None
+
+        else:
+            B, T, C = logits.shape
+            logits = logits.view(B*T, C)
+            targets = targets.view(B*T)
+            loss = F.cross_entropy(logits, targets)
+
+        self.train()
+
+        return logits, loss
+
+    @torch.no_grad()
     def generate(self, context: Tensor, n_tokens: int) -> Tensor:
+        self.eval()
+
         for _ in range(n_tokens):
             clipped_context = context[:, -self.context_size:] # clip context
 
@@ -63,7 +93,9 @@ class TransformerModel(nn.Module):
 
             next = torch.multinomial(probs, 1)
             context = torch.cat((context, next), dim=1)
-        
+
+        self.train()
+
         return context
 
 
@@ -126,7 +158,7 @@ class AttentionHead(nn.Module):
         queries = self.queries(inputs) # (B, T, head_size)
         weights = queries @ keys.transpose(-2, -1) * C ** -0.5 # (B, T, head_size) @ (B, head_size, T) ---> (B, T, T)
 
-        tri = torch.tril(torch.ones(T, T))
+        tri = torch.tril(torch.ones(T, T, device=device))
         weights = weights.masked_fill(tri == 0, float("-inf"))
         weights = weights.softmax(dim=-1)
         weights = self.dropout(weights)
@@ -145,11 +177,11 @@ if __name__ == "__main__":
     context_size = 64
     embedding_dim = 64
     num_heads = 8
-    num_layers = 8
+    num_layers = 4
     dropout = 0.2
 
-    training_batches = 256
-    test_batches = 4096
+    training_batches = 64
+    test_batches = 1024
     training__epochs = 2_000
 
     # create model and data loader
@@ -159,11 +191,11 @@ if __name__ == "__main__":
 
     # get initial loss
     i, t = data.sample(test_batches, context_size)
-    _, loss = model(i, t)
+    _, loss = model.forward_eval(i, t)
     print(f"Initial training loss: {loss}")
 
     i, t = data.sample(test_batches, context_size, training=False)
-    _, loss = model(i, t)
+    _, loss = model.forward_eval(i, t)
     print(f"Initial validation loss: {loss}")
 
     # train
@@ -179,11 +211,11 @@ if __name__ == "__main__":
 
     # get final loss
     i, t = data.sample(test_batches, context_size)
-    _, loss = model(i, t)
+    _, loss = model.forward_eval(i, t)
     print(f"Final training loss: {loss}")
 
     i, t = data.sample(test_batches, context_size, training=False)
-    _, loss = model(i, t)
+    _, loss = model.forward_eval(i, t)
     print(f"Final validation loss: {loss}")
 
     # generate some text
