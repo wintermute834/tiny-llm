@@ -81,7 +81,7 @@ class TransformerModel(nn.Module):
         return logits, loss
 
     @torch.no_grad()
-    def generate(self, context: Tensor, n_tokens: int) -> Tensor:
+    def generate(self, context: Tensor, n_tokens: int, temp: float = 1.0, top_k: int = 0, top_p: float = 1.0) -> Tensor:
         self.eval()
 
         for _ in range(n_tokens):
@@ -89,10 +89,21 @@ class TransformerModel(nn.Module):
 
             logits, _ = self(clipped_context)
             logits = logits[:, -1, :] # get last row
-            probs = F.softmax(logits, dim=-1)
+            logits = logits / temp
 
-            next = torch.multinomial(probs, 1)
-            context = torch.cat((context, next), dim=1)
+            if top_k > 0:
+                logits, indices = torch.topk(logits, top_k, sorted=True)
+
+            else:
+                logits, indices = torch.sort(logits)
+
+            probs = F.softmax(logits, dim=-1)
+            cum_probs = torch.cumsum(probs, dim=-1)
+            probs = probs.masked_fill(cum_probs > top_p, 0)
+            
+            next_i = torch.multinomial(probs, 1)[0]
+            next_token = indices[:, next_i]
+            context = torch.cat((context, next_token), dim=1)
 
         self.train()
 
@@ -170,38 +181,50 @@ class AttentionHead(nn.Module):
 
 
 
+def eval(model: nn.Module, data: Data):
+    i, t = data.sample(test_batches, context_size)
+    _, loss = model.forward_eval(i, t)
+    print(f"Training --- {loss.item():.5f}")
+
+    i, t = data.sample(test_batches, context_size, training=False)
+    _, loss = model.forward_eval(i, t)
+    print(f"Validation - {loss.item():.5f}")
+
+
+
 if __name__ == "__main__":
     torch.manual_seed(9)
 
     # parameters
-    context_size = 64
-    embedding_dim = 64
-    num_heads = 8
-    num_layers = 4
-    dropout = 0.2
+    context_size = 256
+    embedding_dim = 384
+    num_heads = 16 # 16 heads with 24 dim each
+    num_layers = 16
+    dropout = 0.5
 
-    training_batches = 64
+    training_batches = 32
     test_batches = 1024
-    training__epochs = 2_000
+    training_epochs = 1_000
+    num_evals = 9 # every 100 epochs
+
+    temp = 0.8
+    top_k = 10
+    top_p = 0.95
 
     # create model and data loader
-    data = Data("tiny_shakespeare.txt")
-    # data = Data("tiny_shakespeare.txt", tokenizer.BPETokenizer) # BPE tokenizer to make larger, more meaningful tokens
+    # data = Data("tiny_shakespeare.txt")
+    data = Data("tiny_shakespeare.txt", tokenizer.BPETokenizer) # BPE tokenizer to make larger, more meaningful tokens
     model = TransformerModel(data.tokenizer.vocab_size, context_size, embedding_dim, num_heads, num_layers, dropout).to(device)
 
+    print(f"Total parameters: {sum(p.numel() for p in model.parameters()):,}")
     # get initial loss
-    i, t = data.sample(test_batches, context_size)
-    _, loss = model.forward_eval(i, t)
-    print(f"Initial training loss: {loss}")
-
-    i, t = data.sample(test_batches, context_size, training=False)
-    _, loss = model.forward_eval(i, t)
-    print(f"Initial validation loss: {loss}")
+    print("Initial loss:")
+    eval(model, data)
 
     # train
     optimizer = optim.AdamW(model.parameters())
 
-    for i in range(training__epochs):
+    for i in range(1, training_epochs + 1):
         inputs, targets = data.sample(training_batches, context_size)
         _, loss = model(inputs, targets)
 
@@ -209,18 +232,17 @@ if __name__ == "__main__":
         loss.backward()
         optimizer.step()
 
-    # get final loss
-    i, t = data.sample(test_batches, context_size)
-    _, loss = model.forward_eval(i, t)
-    print(f"Final training loss: {loss}")
+        if i in range(0, training_epochs, training_epochs // (num_evals + 1)):
+            print(f"Loss after {i} epochs:")
+            eval(model, data)
 
-    i, t = data.sample(test_batches, context_size, training=False)
-    _, loss = model.forward_eval(i, t)
-    print(f"Final validation loss: {loss}")
+    # get final loss
+    print("Final loss:")
+    eval(model, data)
 
     # generate some text
-    context = data.tokenizer.encode("\n").to(device).unsqueeze(0)
-    out = model.generate(context, 1_000)
+    context = data.tokenizer.encode("\n\n").to(device).unsqueeze(0)
+    out = model.generate(context, 1_000, temp, top_k, top_p)
     decoded = data.tokenizer.decode(out[0])
 
     print(decoded)
