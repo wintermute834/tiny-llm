@@ -77,7 +77,7 @@ class BPETokenizer(Tokenizer):
         self.save()
 
     def save(self) -> None:
-        with open(f"tokenizers/{self.hash}.tok", "w") as f:
+        with open(f"data/tokenizers/{self.hash}.tok", "w") as f:
             f.write(json.dumps({
                 "rules": self.rules,
                 "vocab": self.vocab,
@@ -87,7 +87,7 @@ class BPETokenizer(Tokenizer):
 
     def try_load(self) -> bool:
         try:
-            with open(f"tokenizers/{self.hash}.tok", "r") as f:
+            with open(f"data/tokenizers/{self.hash}.tok", "r") as f:
                 data = json.loads(f.read())
 
             self.rules = data["rules"]

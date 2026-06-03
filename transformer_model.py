@@ -211,9 +211,9 @@ if __name__ == "__main__":
     training_epochs = 1_000
     num_evals = 9 # every 100 epochs
 
-    temp = 0.8
-    top_k = 10
-    top_p = 0.95
+    temp = 1.0
+    top_k = 1
+    top_p = 1.0
 
     # create model and data loader
     # data = Data("tiny_shakespeare.txt")
@@ -239,6 +239,8 @@ if __name__ == "__main__":
         if i in range(0, training_epochs, training_epochs // (num_evals + 1)):
             print(f"Loss after {i} epochs:")
             eval(model, data)
+    
+    torch.save(model.state_dict(), "data/saves/transformer_shakespeare.pt")
 
     # get final loss
     print("Final loss:")
