@@ -95,14 +95,18 @@ class TransformerModel(nn.Module):
                 logits, indices = torch.topk(logits, top_k, sorted=True)
 
             else:
-                logits, indices = torch.sort(logits)
+                logits, indices = torch.sort(logits, descending=True)
 
             probs = F.softmax(logits, dim=-1)
+
             cum_probs = torch.cumsum(probs, dim=-1)
-            probs = probs.masked_fill(cum_probs > top_p, 0)
-            
+            mask = torch.roll(cum_probs >= top_p, 1, dims=-1) # get where prob is greater than top_p and shift one left
+            mask[:, 0] = False # set first col to all False
+
+            probs = probs.masked_fill(mask, 0)
             next_i = torch.multinomial(probs, 1)[0]
             next_token = indices[:, next_i]
+
             context = torch.cat((context, next_token), dim=1)
 
         self.train()
@@ -181,14 +185,14 @@ class AttentionHead(nn.Module):
 
 
 
-def eval(model: nn.Module, data: Data):
+def eval(model: TransformerModel, data: Data):
     i, t = data.sample(test_batches, context_size)
     _, loss = model.forward_eval(i, t)
-    print(f"Training --- {loss.item():.5f}")
+    print(f"Training --- {loss.item():.5f}") # type: ignore
 
     i, t = data.sample(test_batches, context_size, training=False)
     _, loss = model.forward_eval(i, t)
-    print(f"Validation - {loss.item():.5f}")
+    print(f"Validation - {loss.item():.5f}") # type: ignore
 
 
 
