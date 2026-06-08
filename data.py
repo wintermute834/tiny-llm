@@ -1,5 +1,4 @@
 
-import hashlib
 import json
 import torch
 
@@ -13,13 +12,12 @@ from device import device
 
 class Data:
     def __init__(self, filename: str, tokenizer: Type[Tokenizer] = CharacterTokenizer, training_split: float = 0.9, use_save = True) -> None:
-        with open(f"data/{filename}", "r") as f:
+        with open(f"data/texts/{filename}.txt", "r") as f:
             contents = f.read()
             vocab = sorted(list(set(contents)))
 
-        self.tokenizer = tokenizer(vocab, contents)
-
-        self.hash = hashlib.sha256(str((filename, self.tokenizer.hash)).encode()).hexdigest()
+        self.tokenizer = tokenizer(filename, vocab, contents)
+        self.filename = f"data/tokenizations/{filename}_{self.tokenizer.name}.tokd"
 
         if use_save and self.try_load(): return # try to load encoded is using save
 
@@ -41,7 +39,7 @@ class Data:
         return inputs.to(device), targets.to(device)
 
     def save(self) -> None:
-        with open(f"data/tokenizations/{self.hash}.tok", "w") as f:
+        with open(self.filename, "w") as f:
             f.write(json.dumps({
                 "training_data": self.training_data.tolist(),
                 "testing_data": self.testing_data.tolist(),
@@ -49,7 +47,7 @@ class Data:
 
     def try_load(self) -> bool:
         try:
-            with open(f"data/tokenizations/{self.hash}.tok", "r") as f:
+            with open(self.filename, "r") as f:
                 data = json.loads(f.read())
 
             self.training_data = torch.tensor(data["training_data"], dtype=torch.long)
@@ -65,11 +63,11 @@ class Data:
 
 
 if __name__ == "__main__":
-    # data = Data("tiny_shakespeare.txt")
-    data = Data("tiny_shakespeare.txt", tokenizer=BPETokenizer)
+    # data = Data("tiny_shakespeare", tokenizer=BPETokenizer)
+    data = Data("jekyll_and_hyde", tokenizer=BPETokenizer)
 
-    print(f"Vocab: {data.tokenizer.vocab[:100]}\n")
+    print(f"Vocab: {data.tokenizer.vocab[:200]}\n")
     print(f"Vocab size: {data.tokenizer.vocab_size}\n")
-    print(f"First 100 tokens:\n{data.training_data[:100]}")
-    print(f"Number of tokens: {len(data.training_data)}")
+    print(f"First 200 tokens:\n{data.training_data[:200]}")
+    print(f"Training tokens: {len(data.training_data)}")
 

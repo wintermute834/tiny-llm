@@ -216,8 +216,7 @@ if __name__ == "__main__":
     top_p = 1.0
 
     # create model and data loader
-    # data = Data("tiny_shakespeare.txt")
-    data = Data("tiny_shakespeare.txt", tokenizer.BPETokenizer) # BPE tokenizer to make larger, more meaningful tokens
+    data = Data("tiny_shakespeare", tokenizer.BPETokenizer) # BPE tokenizer to make larger, more meaningful tokens
     model = TransformerModel(data.tokenizer.vocab_size, context_size, embedding_dim, num_heads, num_layers, dropout).to(device)
 
     print(f"Total parameters: {sum(p.numel() for p in model.parameters()):,}")
@@ -239,15 +238,16 @@ if __name__ == "__main__":
         if i in range(0, training_epochs, training_epochs // (num_evals + 1)):
             print(f"Loss after {i} epochs:")
             eval(model, data)
-    
-    torch.save(model.state_dict(), "data/saves/transformer_shakespeare.pt")
 
     # get final loss
     print("Final loss:")
     eval(model, data)
+    
+    torch.save(model.state_dict(), "data/saves/transformer_shakespeare.pt")
+    print("Model saved")
 
     # generate some text
-    context = data.tokenizer.encode("\n\n").to(device).unsqueeze(0)
+    context = data.tokenizer.encode("a rose by any other name").to(device).unsqueeze(0)
     out = model.generate(context, 1_000, temp, top_k, top_p)
     decoded = data.tokenizer.decode(out[0])
 

@@ -1,10 +1,8 @@
 
-import hashlib
 import json
 import torch
 import numpy as np
 
-from numba import njit
 from torch import Tensor
 
 
@@ -13,30 +11,38 @@ class Tokenizer:
     '''
     A tokenizer that splits strings into tokens.
     '''
-    def __init__(self, vocab: list[str], *args) -> None:
-        self.vocab = vocab
-        self.vocab_size = len(self.vocab)
-        self._tok_to_str = {i: st for i, st in enumerate(self.vocab)}
 
-        self.hash = hashlib.sha256(f"{self.__class__}, {vocab}".encode()).hexdigest() # store hash for saving/loading
+    SAVE_NAME = "N/A"
+
+    def __init__(self, filename: str, vocab: list[str], *args) -> None:
+        self.name = f"{self.SAVE_NAME}_{filename}"
+        self.filename = f"data/tokenizers/{self.name}.tokr"
+        self.vocab = vocab
+
+    @property
+    def vocab_size(self) -> int:
+        return len(self.vocab)
 
     def encode(self, string: str) -> Tensor: ...
 
     def decode(self, tokens: Tensor) -> str:
-        return "".join(self._tok_to_str[tok] for tok in tokens.tolist()) # type: ignore
+        return "".join(self.vocab[tok] for tok in tokens.tolist()) # type: ignore
 
 
 class CharacterTokenizer(Tokenizer):
     '''
     A simple tokenizer that splits a string into its characters.
     '''
-    def __init__(self, vocab: list[str], *args) -> None:
-        super().__init__(vocab)
 
-        self._str_to_tok = {st: i for i, st in enumerate(self.vocab)}
+    SAVE_NAME = "Character"
+
+    def __init__(self, filename: str, vocab: list[str], *args) -> None:
+        super().__init__(filename, vocab)
+
+        self.encoding_table = {st: i for i, st in enumerate(self.vocab)}
 
     def encode(self, string: str) -> Tensor:
-        return torch.tensor([self._str_to_tok[tok] for tok in string], dtype = torch.long)
+        return torch.tensor([self.encoding_table[tok] for tok in string], dtype = torch.long)
 
 
 class BPETokenizer(Tokenizer):
@@ -44,17 +50,19 @@ class BPETokenizer(Tokenizer):
     A Byte Pair Encoding tokenizer that splits the input into the most common chunks from the text.
     '''
 
+    SAVE_NAME = "BPE"
+
     MAX_VOCAB_SIZE = 1024
     
-    def __init__(self, vocab: list[str], text: str, *args) -> None:
-        super().__init__(vocab)
+    def __init__(self, filename: str, vocab: list[str], text: str, *args) -> None:
+        super().__init__(filename, vocab)
 
         if self.try_load(): return # try to load tokenization
 
-        self._str_to_tok = {st: i for i, st in enumerate(self.vocab)}
+        self.encoding_table = {st: i for i, st in enumerate(vocab)}
         self.rules: list[tuple[int, int, int]] = []
 
-        encoded = np.array([self._str_to_tok[tok] for tok in text], dtype=int)
+        encoded = np.array([self.encoding_table[tok] for tok in text], dtype=int)
 
         while self.vocab_size < self.MAX_VOCAB_SIZE:
             (a, b), n = self.most_common_pair(encoded)
@@ -69,33 +77,25 @@ class BPETokenizer(Tokenizer):
 
             self.rules.append(rule)
             self.vocab.append(rule_str)
-            self._str_to_tok[rule_str] = rule_i
-            self._tok_to_str[rule_i] = rule_str
-
-            self.vocab_size += 1
         
         self.save()
 
     def save(self) -> None:
-        with open(f"data/tokenizers/{self.hash}.tok", "w") as f:
+        with open(self.filename, "w") as f:
             f.write(json.dumps({
-                "rules": self.rules,
                 "vocab": self.vocab,
-                "str_tok": self._str_to_tok,
-                "tok_str": self._tok_to_str
+                "rules": self.rules,
+                "encoding_table": self.encoding_table
             }))
 
     def try_load(self) -> bool:
         try:
-            with open(f"data/tokenizers/{self.hash}.tok", "r") as f:
+            with open(self.filename, "r") as f:
                 data = json.loads(f.read())
 
-            self.rules = data["rules"]
             self.vocab = data["vocab"]
-            self._str_to_tok = data["str_tok"]
-            self._tok_to_str = data["tok_str"]
-
-            self.vocab_size = len(self.vocab)
+            self.rules = data["rules"]
+            self.encoding_table = data["encoding_table"]
 
             print("Loaded tokenizer successfully")
 
@@ -105,7 +105,7 @@ class BPETokenizer(Tokenizer):
             return False
 
     def encode(self, string: str) -> Tensor:
-        encoded = np.array([self._str_to_tok[tok] for tok in string], dtype=int)
+        encoded = np.array([self.encoding_table[tok] for tok in string], dtype=int)
 
         for rule in self.rules:
             encoded = np.array(self.apply_rule(encoded, rule), dtype=int)
@@ -124,7 +124,6 @@ class BPETokenizer(Tokenizer):
         return tuple(map(int, keys[max_i])), int(counts[max_i]) # type: ignore
 
     @staticmethod
-    @njit
     def apply_rule(array: np.ndarray, rule: tuple[int, int, int]) -> list[int]:
         next = []
         i = 0
@@ -143,18 +142,17 @@ class BPETokenizer(Tokenizer):
 
 
 if __name__ == "__main__":
-    # tokenizer = CharacterTokenizer(list("abcdefg"))
-    # message = "abcdefgfedcba"
+    # text = "Hello world, this is a BPE tokenizer.\nIt works, but is very slow :(\nThe rust version is much faster."
+    text = open("data/texts/jekyll_and_hyde.txt", "r").read()
 
-    text = "Hello world, this is a BPE tokenizer.\nIt works well, but is very slow :(\nHopefully it will be improved eventually."
-    tokenizer = BPETokenizer(sorted(list(set(text))), text)
-    message = "Hello, this is a test of the tokenizer."
+    tokenizer = BPETokenizer("jekyll_and_hyde", sorted(list(set(text))), text)
 
-    encoded = tokenizer.encode(message)
+    encoded = tokenizer.encode(text)
     decoded = tokenizer.decode(encoded)
 
     print(f"Vocab size: {tokenizer.vocab_size}")
-    print(f"Message: \"{message}\"")
-    print(f"Encoded: {encoded}")
-    print(f"Decoded: \"{decoded}\"")
+    print(f"Message: \"{text[:200]}\"")
+    print(f"Encoded: {encoded[:200]}")
+    print(f"Decoded: \"{decoded[:200]}\"")
+    print(f"Tokens: {len(text)} -> {len(encoded)} -> {len(decoded)}")
 
