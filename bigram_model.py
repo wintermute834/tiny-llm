@@ -71,7 +71,7 @@ if __name__ == "__main__":
     epochs = 5_000
 
     # train
-    optimizer = optim.Muon(model.parameters())
+    optimizer = optim.AdamW(model.parameters())
 
     for i in range(epochs):
         inputs, targets = data.sample(batches, context_len)

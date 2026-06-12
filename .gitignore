@@ -8,4 +8,7 @@ __pycache__/
 .vscode
 
 # Model saves
-./data/saves/*
+corpus/*.txt
+saves/models/*.pt
+saves/tokenizers/*.tokr
+saves/tokenizations/*.tokd

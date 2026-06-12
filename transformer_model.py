@@ -212,7 +212,7 @@ if __name__ == "__main__":
     num_evals = 9 # every 100 epochs
 
     temp = 1.0
-    top_k = 1
+    top_k = 0
     top_p = 1.0
 
     # create model and data loader
