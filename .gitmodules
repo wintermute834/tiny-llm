@@ -1,0 +1,3 @@
+[submodule "bpr_tokenizer"]
+	path = bpr_tokenizer
+	url = https://github.com/j0e133/bpe_tokenizer.git
