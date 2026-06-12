@@ -1,3 +1,4 @@
-[submodule "bpr_tokenizer"]
+[submodule "bpe_tokenizer"]
 	path = bpe_tokenizer
 	url = https://github.com/j0e133/bpe_tokenizer.git
+	branch = master
