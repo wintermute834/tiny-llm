@@ -28,7 +28,7 @@ class Data:
     def sample(self, batches: int, length: int, training: bool = True) -> tuple[Tensor, Tensor]:
         data = self.training_data if training else self.testing_data
 
-        rand = torch.randint(0, int(len(data)) - length, (batches,))
+        rand = torch.randint(0, int(len(data[0])) - length, (batches,))
         inputs = torch.stack([data[0][i:i + length] for i in rand])
         targets = torch.stack([data[0][i + 1:i + length + 1] for i in rand])
 

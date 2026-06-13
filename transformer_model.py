@@ -26,7 +26,7 @@ class TransformerModel(nn.Module):
         self.position_embedding = nn.Embedding(context_size, embedding_dim)
 
         self.blocks = nn.Sequential(*(
-            SelfAttentionBlock(embedding_dim, num_heads, dropout) for _ in range(num_blocks)
+            SelfAttentionBlock(embedding_dim, num_heads, dropout, context_size) for _ in range(num_blocks)
         ))
         self.ln_final = nn.LayerNorm(embedding_dim)
         self.lm_head = nn.Linear(embedding_dim, vocab_size)
@@ -116,10 +116,10 @@ class TransformerModel(nn.Module):
 
 
 class SelfAttentionBlock(nn.Module):
-    def __init__(self, embedding_dim: int, num_heads: int, dropout: float) -> None:
+    def __init__(self, embedding_dim: int, num_heads: int, dropout: float, context_size: int) -> None:
         super().__init__()
 
-        self.attention = MultiHeadAttention(embedding_dim, num_heads, dropout)
+        self.attention = MultiHeadAttention(embedding_dim, num_heads, dropout, context_size)
         self.ffn = nn.Sequential(
             nn.Linear(embedding_dim, embedding_dim * 4),
             nn.ReLU(),
@@ -138,12 +138,12 @@ class SelfAttentionBlock(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, embedding_dim: int, num_heads: int, dropout: float) -> None:
+    def __init__(self, embedding_dim: int, num_heads: int, dropout: float, context_size: int) -> None:
         super().__init__()
 
         head_size = embedding_dim // num_heads
         self.heads = nn.ModuleList(
-            AttentionHead(embedding_dim, head_size, dropout) for _ in range(num_heads)
+            AttentionHead(embedding_dim, head_size, dropout, context_size) for _ in range(num_heads)
         )
         self.projection = nn.Linear(embedding_dim, embedding_dim)
         self.dropout = nn.Dropout(dropout)
@@ -157,12 +157,13 @@ class MultiHeadAttention(nn.Module):
 
 
 class AttentionHead(nn.Module):
-    def __init__(self, embedding_dim: int, head_size: int, dropout: float) -> None:
+    def __init__(self, embedding_dim: int, head_size: int, dropout: float, context_size: int) -> None:
         super().__init__()
 
         self.keys =    nn.Linear(embedding_dim, head_size, bias=False)
         self.queries = nn.Linear(embedding_dim, head_size, bias=False)
         self.values =  nn.Linear(embedding_dim, head_size, bias=False)
+        self.register_buffer("tril", torch.tril(torch.ones(context_size)))
 
         self.dropout = nn.Dropout(dropout)
     
@@ -173,8 +174,7 @@ class AttentionHead(nn.Module):
         queries = self.queries(inputs) # (B, T, head_size)
         weights = queries @ keys.transpose(-2, -1) * C ** -0.5 # (B, T, head_size) @ (B, head_size, T) ---> (B, T, T)
 
-        tri = torch.tril(torch.ones(T, T, device=device))
-        weights = weights.masked_fill(tri == 0, float("-inf"))
+        weights = weights.masked_fill(self.tril[:T, :T] == 0, float("-inf")) # type: ignore
         weights = weights.softmax(dim=-1)
         weights = self.dropout(weights)
 
