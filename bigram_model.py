@@ -53,7 +53,7 @@ class BigramModel(nn.Module):
 if __name__ == "__main__":
     torch.manual_seed(9)
 
-    data = Data("tiny_shakespeare.txt", tokenizer=tokenizer.BPETokenizer)
+    data = Data("tiny_shakespeare")
     model = BigramModel(data.tokenizer.vocab_size).to(device)
 
     # get initial loss

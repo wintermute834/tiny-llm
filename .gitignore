@@ -12,3 +12,6 @@ corpus/*.txt
 saves/models/*.pt
 saves/tokenizers/*.tokr
 saves/tokenizations/*.tokd
+
+# Misc
+call_bpe_tokenizer.txt

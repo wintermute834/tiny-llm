@@ -216,7 +216,7 @@ if __name__ == "__main__":
     top_p = 1.0
 
     # create model and data loader
-    data = Data("tiny_shakespeare", tokenizer.BPETokenizer) # BPE tokenizer to make larger, more meaningful tokens
+    data = Data("tiny-shakespeare-1024") # BPE tokenizer to make larger, more meaningful tokens
     model = TransformerModel(data.tokenizer.vocab_size, context_size, embedding_dim, num_heads, num_layers, dropout).to(device)
 
     print(f"Total parameters: {sum(p.numel() for p in model.parameters()):,}")
