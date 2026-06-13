@@ -212,7 +212,7 @@ if __name__ == "__main__":
 
     # train
     scaler = GradScaler(device)
-    optimizer = optim.AdamW(model.parameters())
+    optimizer = optim.AdamW(model.parameters(), lr=1e-4)
     annealer = CosineAnnealingLR(optimizer, training_epochs)
 
     for i in range(1, training_epochs + 1):
