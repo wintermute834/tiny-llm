@@ -2,7 +2,6 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import tokenizer
 
 from typing import Optional
 from torch import Tensor
@@ -30,7 +29,8 @@ class TransformerModel(nn.Module):
         ))
         self.ln_final = nn.LayerNorm(embedding_dim)
         self.lm_head = nn.Linear(embedding_dim, vocab_size)
-    
+
+    @torch.autocast(device)
     def forward(self, inputs: Tensor, targets: Optional[Tensor] = None) -> tuple[Tensor, Optional[Tensor]]:
         B, T = inputs.shape
 
@@ -54,6 +54,7 @@ class TransformerModel(nn.Module):
         return logits, loss
 
     @torch.no_grad()
+    @torch.autocast(device)
     def forward_eval(self, inputs: Tensor, targets: Optional[Tensor] = None) -> tuple[Tensor, Optional[Tensor]]:
         self.eval()
 
@@ -64,6 +65,7 @@ class TransformerModel(nn.Module):
         return logits, loss
 
     @torch.no_grad()
+    @torch.autocast(device)
     def generate(self, context: Tensor, n_tokens: int, temp: float = 1.0, top_k: int = 0, top_p: float = 1.0) -> Tensor:
         self.eval()
 
@@ -112,6 +114,7 @@ class SelfAttentionBlock(nn.Module):
         self.ln1 = nn.LayerNorm(embedding_dim)
         self.ln2 = nn.LayerNorm(embedding_dim)
     
+    @torch.autocast(device)
     def forward(self, inputs: Tensor) -> Tensor:
         inputs = inputs + self.attention(self.ln1(inputs))
         inputs = inputs + self.ffn(self.ln2(inputs))
@@ -138,6 +141,7 @@ class MultiHeadAttention(nn.Module):
         self.projection = nn.Linear(embedding_dim, embedding_dim)
         self.proj_dropout = nn.Dropout(dropout)
     
+    @torch.autocast(device)
     def forward(self, inputs: Tensor) -> Tensor:
         B, T, C = inputs.shape
 
@@ -182,7 +186,7 @@ if __name__ == "__main__":
     # parameters
     context_size = 256
     embedding_dim = 384
-    num_heads = 16 # 16 heads with 24 dim each
+    num_heads = 12 # 12 heads with 32 dim each
     num_layers = 16
     dropout = 0.5
 
