@@ -7,6 +7,7 @@ from typing import Optional
 from torch import Tensor
 from torch.nn import functional as F
 from torch.amp.grad_scaler import GradScaler
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from data import Data
 from device import device
@@ -212,6 +213,7 @@ if __name__ == "__main__":
     # train
     scaler = GradScaler(device)
     optimizer = optim.AdamW(model.parameters())
+    annealer = CosineAnnealingLR(optimizer, training_epochs)
 
     for i in range(1, training_epochs + 1):
         inputs, targets = data.sample(training_batches, context_size)
@@ -220,6 +222,7 @@ if __name__ == "__main__":
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
+        annealer.step()
         optimizer.zero_grad()
 
         if i in range(0, training_epochs, training_epochs // (num_evals + 1)):
