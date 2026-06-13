@@ -163,7 +163,7 @@ class AttentionHead(nn.Module):
         self.keys =    nn.Linear(embedding_dim, head_size, bias=False)
         self.queries = nn.Linear(embedding_dim, head_size, bias=False)
         self.values =  nn.Linear(embedding_dim, head_size, bias=False)
-        self.register_buffer("tril", torch.tril(torch.ones(context_size)))
+        self.register_buffer("tril", torch.tril(torch.ones(context_size, context_size)))
 
         self.dropout = nn.Dropout(dropout)
     
@@ -212,8 +212,8 @@ if __name__ == "__main__":
     num_evals = 9 # every 100 epochs
 
     temp = 1.0
-    top_k = 0
-    top_p = 1.0
+    top_k = 10
+    top_p = 0.95
 
     # create model and data loader
     data = Data("tiny-shakespeare-1024") # BPE tokenizer to make larger, more meaningful tokens
@@ -243,7 +243,7 @@ if __name__ == "__main__":
     print("Final loss:")
     eval(model, data)
     
-    torch.save(model.state_dict(), "data/saves/transformer_shakespeare.pt")
+    torch.save(model.state_dict(), "saves/models/transformer_shakespeare.pt")
     print("Model saved")
 
     # generate some text
