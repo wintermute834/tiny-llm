@@ -186,15 +186,15 @@ if __name__ == "__main__":
 
     # parameters
     context_size = 256
-    embedding_dim = 384
-    num_heads = 12 # 12 heads with 32 dim each
-    num_layers = 16
+    embedding_dim = 768
+    num_heads = 12 # 8 heads with 64 dim each
+    num_layers = 24
     dropout = 0.5
 
     training_batches = 32
     test_batches = 512
-    training_epochs = 1_000
-    num_evals = 9 # every 100 epochs
+    training_epochs = 5_000
+    num_evals = 19 # every 100 epochs
 
     temp = 1.0
     top_k = 10
