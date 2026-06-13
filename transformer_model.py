@@ -57,24 +57,7 @@ class TransformerModel(nn.Module):
     def forward_eval(self, inputs: Tensor, targets: Optional[Tensor] = None) -> tuple[Tensor, Optional[Tensor]]:
         self.eval()
 
-        B, T = inputs.shape
-
-        token_embed = self.token_embedding(inputs)
-        position_embed = self.position_embedding(torch.arange(T, device=device))
-
-        activations = token_embed + position_embed
-        activations = self.blocks(activations)
-        activations = self.ln_final(activations)
-        logits = self.lm_head(activations)
-
-        if targets is None:
-            loss = None
-
-        else:
-            B, T, C = logits.shape
-            logits = logits.view(B*T, C)
-            targets = targets.view(B*T)
-            loss = F.cross_entropy(logits, targets)
+        logits, loss = self(inputs, targets)
 
         self.train()
 
@@ -87,7 +70,7 @@ class TransformerModel(nn.Module):
         for _ in range(n_tokens):
             clipped_context = context[:, -self.context_size:] # clip context
 
-            logits, _ = self(clipped_context)
+            logits, _ = self.forward_eval(clipped_context)
             logits = logits[:, -1, :] # get last row
             logits = logits / temp
 
@@ -183,9 +166,13 @@ def eval(model: TransformerModel, data: Data):
     _, loss = model.forward_eval(i, t)
     print(f"Training --- {loss.item():.5f}") # type: ignore
 
+    del i, t, loss
+
     i, t = data.sample(test_batches, context_size, training=False)
     _, loss = model.forward_eval(i, t)
     print(f"Validation - {loss.item():.5f}") # type: ignore
+
+    del i, t, loss
 
 
 
@@ -200,7 +187,7 @@ if __name__ == "__main__":
     dropout = 0.5
 
     training_batches = 32
-    test_batches = 1024
+    test_batches = 512
     training_epochs = 1_000
     num_evals = 9 # every 100 epochs
 
@@ -224,9 +211,9 @@ if __name__ == "__main__":
         inputs, targets = data.sample(training_batches, context_size)
         _, loss = model(inputs, targets)
 
-        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        optimizer.zero_grad()
 
         if i in range(0, training_epochs, training_epochs // (num_evals + 1)):
             print(f"Loss after {i} epochs:")
