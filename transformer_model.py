@@ -6,6 +6,7 @@ import torch.optim as optim
 from typing import Optional
 from torch import Tensor
 from torch.nn import functional as F
+from torch.amp.grad_scaler import GradScaler
 
 from data import Data
 from device import device
@@ -209,14 +210,16 @@ if __name__ == "__main__":
     eval(model, data)
 
     # train
+    scaler = GradScaler(device)
     optimizer = optim.AdamW(model.parameters())
 
     for i in range(1, training_epochs + 1):
         inputs, targets = data.sample(training_batches, context_size)
         _, loss = model(inputs, targets)
 
-        loss.backward()
-        optimizer.step()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
         optimizer.zero_grad()
 
         if i in range(0, training_epochs, training_epochs // (num_evals + 1)):
