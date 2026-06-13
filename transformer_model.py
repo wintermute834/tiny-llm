@@ -141,45 +141,38 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, embedding_dim: int, num_heads: int, dropout: float, context_size: int) -> None:
         super().__init__()
 
-        head_size = embedding_dim // num_heads
-        self.heads = nn.ModuleList(
-            AttentionHead(embedding_dim, head_size, dropout, context_size) for _ in range(num_heads)
-        )
+        self.embedding_dim = embedding_dim
+        self.num_heads = num_heads
+        self.head_size = embedding_dim // num_heads
+        self.inv_sqrt_head_size = self.head_size ** -0.5
+
+        # batched query, key, value layer
+        self.qkv = nn.Linear(embedding_dim, embedding_dim * 3, bias=False)
+        self.register_buffer("tril", torch.tril(torch.ones(context_size, context_size)).view(1, 1, context_size, context_size))
+        self.tril: Tensor
+        self.attention_dropout = nn.Dropout(dropout)
+
         self.projection = nn.Linear(embedding_dim, embedding_dim)
-        self.dropout = nn.Dropout(dropout)
-    
-    def forward(self, inputs: Tensor) -> Tensor:
-        out = torch.cat([head(inputs) for head in self.heads], dim=-1)
-        out = self.dropout(self.projection(out))
-
-        return out
-
-
-
-class AttentionHead(nn.Module):
-    def __init__(self, embedding_dim: int, head_size: int, dropout: float, context_size: int) -> None:
-        super().__init__()
-
-        self.keys =    nn.Linear(embedding_dim, head_size, bias=False)
-        self.queries = nn.Linear(embedding_dim, head_size, bias=False)
-        self.values =  nn.Linear(embedding_dim, head_size, bias=False)
-        self.register_buffer("tril", torch.tril(torch.ones(context_size, context_size)))
-
-        self.dropout = nn.Dropout(dropout)
+        self.proj_dropout = nn.Dropout(dropout)
     
     def forward(self, inputs: Tensor) -> Tensor:
         B, T, C = inputs.shape
 
-        keys = self.keys(inputs)       # (B, T, head_size)
-        queries = self.queries(inputs) # (B, T, head_size)
-        weights = queries @ keys.transpose(-2, -1) * C ** -0.5 # (B, T, head_size) @ (B, head_size, T) ---> (B, T, T)
+        q, k, v = self.qkv(inputs).split(self.embedding_dim, dim=-1)
 
-        weights = weights.masked_fill(self.tril[:T, :T] == 0, float("-inf")) # type: ignore
+        q = q.view(B, T, self.num_heads, self.head_size).transpose(1, 2)
+        k = k.view(B, T, self.num_heads, self.head_size).transpose(1, 2)
+        v = v.view(B, T, self.num_heads, self.head_size).transpose(1, 2)
+
+        weights = (q @ k.transpose(-2, -1)) * self.inv_sqrt_head_size # (B, num_heads, T, head_size) @ (B, num_heads, head_size, T) ---> (B, num_heads, T, T)
+
+        weights = weights.masked_fill(self.tril[:,:,:T, :T] == 0, float("-inf"))
         weights = weights.softmax(dim=-1)
-        weights = self.dropout(weights)
+        weights = self.attention_dropout(weights)
 
-        values = self.values(inputs)
-        out = weights @ values # (B, T, T) @ (B, T, C) -> (B, T, C)
+        out = weights @ v # (B, num_heads, T, T) @ (B, num_heads, T, head_size) -> (B, num_heads, T, head_size)
+        out = out.transpose(1, 2).reshape(B, T, C) # (B, num_heads, T, head_size) -> (B, T, C)
+        out = self.proj_dropout(self.projection(out))
 
         return out
 
