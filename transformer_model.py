@@ -172,13 +172,11 @@ def eval(model: TransformerModel, data: Data):
     _, loss = model.forward_eval(i, t)
     print(f"Training --- {loss.item():.5f}") # type: ignore
 
-    del i, t, loss
-
     i, t = data.sample(test_batches, context_size, training=False)
     _, loss = model.forward_eval(i, t)
     print(f"Validation - {loss.item():.5f}") # type: ignore
 
-    del i, t, loss
+    torch.cuda.empty_cache()
 
 
 
@@ -186,33 +184,34 @@ if __name__ == "__main__":
     torch.manual_seed(9)
 
     # parameters
-    context_size = 256
+    context_size = 512
     embedding_dim = 768
     num_heads = 12 # 12 heads with 64 dim each
-    num_layers = 24
+    num_layers = 20
     dropout = 0.5
 
-    training_batches = 32
-    test_batches = 512
-    training_epochs = 5_000
-    num_evals = 19 # every 250 epochs
+    training_batches = 16
+    test_batches = 256
+    training_epochs = 5_000 
+    num_evals = 9 # every 500 epochs
 
     temp = 1.0
     top_k = 10
     top_p = 0.95
 
     # create data loader and model
-    data = Data("tiny-shakespeare-1024")
+    data = Data("cia-factbook-2048")
     model = TransformerModel(data.tokenizer.vocab_size, context_size, embedding_dim, num_heads, num_layers, dropout).to(device)
 
     print(f"Total parameters: {sum(p.numel() for p in model.parameters()):,}")
+
     # get initial loss
     print("Initial loss:")
     eval(model, data)
 
     # train
     scaler = GradScaler(device)
-    optimizer = optim.AdamW(model.parameters(), lr=1e-4)
+    optimizer = optim.AdamW(model.parameters(), lr=2e-4)
     annealer = CosineAnnealingLR(optimizer, training_epochs)
 
     for i in range(1, training_epochs + 1):
@@ -225,6 +224,8 @@ if __name__ == "__main__":
         annealer.step()
         optimizer.zero_grad()
 
+        torch.cuda.empty_cache()
+
         if i in range(0, training_epochs, training_epochs // (num_evals + 1)):
             print(f"Loss after {i} epochs:")
             eval(model, data)
@@ -232,12 +233,12 @@ if __name__ == "__main__":
     # get final loss
     print("Final loss:")
     eval(model, data)
-    
-    torch.save(model, "saves/models/transformer-shakespeare.pt")
+
+    torch.save(model, "saves/models/transformer-cia.pt")
     print("Model saved")
 
     # generate some text
-    context = data.tokenizer.encode("a rose by any other name").to(device).unsqueeze(0)
+    context = data.tokenizer.encode("United States of America").to(device).unsqueeze(0)
     out = model.generate(context, 1_000, temp, top_k, top_p)
     decoded = data.tokenizer.decode(out[0])
 
