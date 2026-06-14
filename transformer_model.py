@@ -186,16 +186,16 @@ if __name__ == "__main__":
     torch.manual_seed(9)
 
     # parameters
-    context_size = 256
-    embedding_dim = 768
-    num_heads = 12 # 8 heads with 64 dim each
-    num_layers = 24
+    context_size = 32
+    embedding_dim = 64
+    num_heads = 4 # 8 heads with 64 dim each
+    num_layers = 8
     dropout = 0.5
 
     training_batches = 32
     test_batches = 512
-    training_epochs = 5_000
-    num_evals = 19 # every 100 epochs
+    training_epochs = 500
+    num_evals = 0 # every 100 epochs
 
     temp = 1.0
     top_k = 10
@@ -233,7 +233,7 @@ if __name__ == "__main__":
     print("Final loss:")
     eval(model, data)
     
-    torch.save(model.state_dict(), "saves/models/transformer_shakespeare.pt")
+    torch.save(model, "saves/models/transformer-shakespeare.pt")
     print("Model saved")
 
     # generate some text

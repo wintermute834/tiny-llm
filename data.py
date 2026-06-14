@@ -10,20 +10,20 @@ from device import device
 
 
 class Data:
-    def __init__(self, filename: str, training_split: float = 0.9) -> None:
+    def __init__(self, name: str, training_split: float = 0.9) -> None:
         try:
-            with open(f"saves/tokenizations/{filename}.tokd", "r") as f:
+            with open(f"saves/tokenizations/{name}.tokd", "r") as f:
                 corpus = json.loads(f.read())
 
             self.training_data = [torch.tensor(text[:int(len(text) * training_split)]) for text in corpus]
             self.testing_data = [torch.tensor(text[int(len(text) * training_split):]) for text in corpus]
 
-            self.tokenizer = Tokenizer(filename)
+            self.tokenizer = Tokenizer(name)
 
             print("Loaded tokenization successfully")
 
         except:
-            raise Exception(f"Failed to load tokenization {filename}")
+            raise Exception(f"Failed to load tokenization {name}")
 
     def sample(self, batches: int, length: int, training: bool = True) -> tuple[Tensor, Tensor]:
         data = self.training_data if training else self.testing_data

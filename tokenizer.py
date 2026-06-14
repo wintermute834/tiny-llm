@@ -12,9 +12,9 @@ class Tokenizer:
     A Byte Pair Encoding tokenizer that splits the input into the most common chunks from the text.
     '''
     
-    def __init__(self, filename: str) -> None:
+    def __init__(self, name: str) -> None:
         try:
-            with open(f"saves/tokenizers/{filename}.tokr", "r", encoding="utf-8") as f:
+            with open(f"saves/tokenizers/{name}.tokr", "r", encoding="utf-8") as f:
                 data = json.loads(f.read())
             
             self.vocab = data["vocab"]
@@ -24,7 +24,7 @@ class Tokenizer:
             print("Loaded tokenizer successfully")
 
         except:
-            raise Exception(f"Failed to load tokenizer {filename}")
+            raise Exception(f"Failed to load tokenizer {name}")
     
     @property
     def vocab_size(self) -> int:
